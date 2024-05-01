@@ -1,0 +1,81 @@
+class RingBuffer:
+    # Ring buffer with numpy array
+    # Specifically for handling byte strings
+    def __init__(self, size=2**16, dtype=np.uint8):
+        self.buf = np.empty(size, dtype=dtype)
+        self.dtype = dtype
+        self.size = size
+        self.start = 0
+        self.stop = 0
+        self.full = False
+
+    def __len__(self):
+        # If full return the size of the buffer
+        if(full):
+            return self.size
+
+        # Check if buffer crosses end of array
+        xovr = False
+        if(self.start > self.stop):
+            xovr = True
+
+        if(xovr):
+            return (self.size-self.start) + self.stop
+        else:
+            return self.stop-self.start
+
+    def __getitem__(self, key):
+        if(type(key) == slice):
+            start, stop, step = key.indices(len(self))
+            indxs = np.array(list(range(start, stop, step)), dtype=np.uint64)
+            indxs = self.start + indxs
+            indxs = indxs % self.size
+            return self.buf[indxs]
+        elif(type(key) == int):
+            if(key > len(self)):
+                raise RuntimeError("Index greater than RingBuffer length")
+            indx = self.start + key
+            indx = indx % self.size
+            return self.buf[indx]
+        else:
+            raise RuntimeError("Unhandled index type given to RingBuffer")
+
+    def advance(self, n):
+        # Check if buffer crosses end of array
+        xovr = False
+        if(self.start > self.stop):
+            xovr = True
+
+        # Move up start pointer by n items
+        self.start = self.start + n
+
+        # Modulo it if crossing end of array
+        if(self.start >= self.size):
+            self.start %= self.size
+            xovr = False
+
+        if((not xovr and self.start > self.stop) or (xovr and self.start < self.stop)):
+            raise RuntimeWarning("RingBuffer advance past stop")
+            self.start = self.stop
+
+    def append(self, x):
+        # Check if buffer crosses end of array
+        xovr = False
+        if(self.start > self.stop):
+            xovr = True
+
+        # Add byte string x to the end of the array
+        if(self.stop + len(x) > self.size):
+            print("Rollover!)")
+            n = self.size - self.stop
+            self.buf[self.stop:] = np.frombuffer(x[:n], dtype=self.dtype, count=n)
+            self.buf[:len(x)-n] = np.frombuffer(x[n:], dtype=self.dtype, count=len(x)-n)
+            self.stop = len(x)-n
+            xovr = True
+        else:
+            self.buf[self.stop:self.stop+len(x)] = np.frombuffer(x, dtype=self.dtype, count=len(x))
+            self.stop += len(x)
+
+        if((not xovr and self.start > self.stop) or (xovr and self.start < self.stop)):
+            raise RuntimeWarning("RingBuffer overflow")
+            self.start = self.stop

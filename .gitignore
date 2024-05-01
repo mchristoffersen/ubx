@@ -1,0 +1,9 @@
+# ublox documents
+u-blox-F9-HPG-1.32_InterfaceDescription_UBX-22008968.pdf
+ZED-F9P_IntegrationManual_UBX-18010802.pdf
+
+# Package stuff
+ubx.egg-info/
+
+# Python stuff
+__pycache__/
