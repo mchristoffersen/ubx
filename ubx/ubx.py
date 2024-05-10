@@ -120,6 +120,10 @@ class UBX:
                 continue
 
             print(get_msg_name(msgClass, msgID))
+            if(get_msg_name(msgClass, msgID) == "UBX-MON-RF"):
+                hdr, info = parseMsg(msg[start:end])
+                print(info)
+
             msg = msg[end:]
 
     def streamPVT(self):
@@ -208,6 +212,20 @@ class UBX:
                     settings[struct.pack("<I", v[0])] = struct.pack("<B", 1)
                 else:
                     raise RuntimeError("Unhandled config datatype in enableRAWX")
+
+        for k, v in settings.items():
+            msg = make_valset({k: v})
+            self.ser.write(msg)
+            time.sleep(0.01)
+
+    def enableRF(self):
+        settings = {}
+        for k, v in ubx.cfg.msgout.fields.items():
+            if "CFG-MSGOUT-UBX_MON_RF" in k:
+                if v[1] == "U1":
+                    settings[struct.pack("<I", v[0])] = struct.pack("<B", 1)
+                else:
+                    raise RuntimeError("Unhandled config datatype in enableRF")
 
         for k, v in settings.items():
             msg = make_valset({k: v})
@@ -324,6 +342,23 @@ def get_msg_name(msgClass, msgID):
             0x36: "UBX-RXM-SPARTNKEY",
         },
         0x05: {0x01: "UBX-ACK-ACK", 0x00: "UBX-ACK-NAK"},  # UBX-ACK
+        0x0a: {  # UBX-MON
+            0x36: "UBX-MON-COMMS",
+            0x28: "UBX-MON-GNSS",
+            0x09: "UBX-MON-HW",
+            0x0b: "UBX-MON-HW2",
+            0x37: "UBX-MON-HW3",
+            0x02: "UBX-MON-IO",
+            0x06: "UBX-MON-MSGPP",
+            0x27: "UBX-MON-PATCH",
+            0x38: "UBX-MON-RF",
+            0x07: "UBX-MON-RXBUF",
+            0x21: "UBX-MON-RXR",
+            0x31: "UBX-MON-SPAN",
+            0x39: "UBX-MON-SYS",
+            0x08: "UBX-MON-TXBUF",
+            0x04: "UBX-MON-VER",
+        }
     }
 
     if msgClass not in classIndex.keys():
@@ -376,6 +411,9 @@ def parseMsg(msg):
             0x01: ubx.parse.ack.ubx_ack_ack,
             0x00: ubx.parse.ack.ubx_ack_nak,
         },
+        0x0a: {  # UBX-MON
+            0x38: ubx.parse.mon.ubx_mon_rf,
+        }
     }
 
     if msgClass not in msgIndex.keys():

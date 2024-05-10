@@ -1,13 +1,14 @@
 import ubx
 
 
-gps = ubx.UBX(baudrate=115200)
+gps = ubx.UBX()
 
 gps.disableNMEA()
 # gps.disableAllMessages()
 gps.enablePVT()
+gps.enableRF()
 # gps.enableRAWX()
 # gps.enableSFRBX()
 # gps.dumpNMEA()
-# gps.dumpUBX()
-gps.streamPVT()
+gps.dumpUBX()
+# gps.streamPVT()
