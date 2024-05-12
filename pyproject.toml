@@ -23,3 +23,6 @@ dependencies = [
 
 [project.urls]
 repository = "https://github.com/mchristoffersen/ubx"
+
+[project.scripts]
+ubxdump = "ubx.bin.ubxDump:main"

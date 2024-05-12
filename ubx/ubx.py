@@ -247,7 +247,7 @@ class UBX:
             time.sleep(0.01)
 
 
-def make_valset(settings):
+def makeValset(settings):
     # Make valset message from dict of settings passed in
     # keys and values must be byte strings, keys are the
     # config item id (4 bytes) and values are the corresponding
@@ -279,7 +279,7 @@ def make_valset(settings):
     return msg
 
 
-def get_msg_name(msgClass, msgID):
+def getMsgName(msgClass, msgID):
     classIndex = {
         0x05: "UBX-ACK",
         0x06: "UBX-CFG",
