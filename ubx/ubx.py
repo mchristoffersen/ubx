@@ -10,15 +10,18 @@ import serial.tools.list_ports
 
 import ubx.cfg.msgout
 
+
 # ToDo
 # Check for ACK/ACK or ACK/NAK after sending settings?
 class UBX:
-    def __init__(self, dev=None, baudrate=38400, wait_for_connection=False, serial_timeout=0):
+    def __init__(
+        self, dev=None, baudrate=38400, wait_for_connection=False, serial_timeout=0
+    ):
         if dev is None:
             # Detect ZED-F9P if no device given
             desc = "u-blox GNSS receiver"
 
-            while(dev is None):
+            while dev is None:
                 ports = serial.tools.list_ports.comports()
                 for port in ports:
                     if port.description == desc:
@@ -26,10 +29,10 @@ class UBX:
                         print(dev)
                         break
 
-                if(dev is None and not wait_for_connection):
+                if dev is None and not wait_for_connection:
                     raise ConnectionError("Unable to detect UBX ZED-F9P")
 
-                if(dev is None):
+                if dev is None:
                     print("No UBX device found")
                     time.sleep(1)
 
@@ -43,7 +46,7 @@ class UBX:
             timeout=serial_timeout,
         )
 
-        #self.configSocket()
+        # self.configSocket()
 
     def configSocket(self):
         # Set the path for the Unix socket
@@ -76,13 +79,13 @@ class UBX:
 
     def __del__(self):
         # Clean up serial port
-        if(hasattr(self, "ser")):
+        if hasattr(self, "ser"):
             self.ser.close()
 
         # Clean up socket
-        #if self.connection is not None:
+        # if self.connection is not None:
         #    self.connection.close()
-        #os.unlink(self.socket_path)
+        # os.unlink(self.socket_path)
 
     def dumpNMEA(self):
         # Print all NMEA messages to terminal
@@ -125,7 +128,7 @@ class UBX:
                 continue
 
             print(getMsgName(msgClass, msgID))
-            if(getMsgName(msgClass, msgID) == "UBX-MON-RF"):
+            if getMsgName(msgClass, msgID) == "UBX-MON-RF":
                 hdr, info = parseMsg(msg[start:end])
                 print(info)
 
@@ -138,9 +141,9 @@ class UBX:
         lastfix = None
         while True:
             # Check if anything waiting for fix
-            if(self.connection is None):
+            if self.connection is None:
                 self.checkConnection()
-            if(self.connection is not None and lastfix is not None):
+            if self.connection is not None and lastfix is not None:
                 self.connection.sendall(lastfix.tobytes())
                 self.connection.close()
                 self.connection = None
@@ -153,7 +156,7 @@ class UBX:
             if (len(msg) - start) < 6:
                 msg += self.ser.read(n)
 
-            msgClass, msgID, msgLen = msgInfo(msg[start: start + 6])
+            msgClass, msgID, msgLen = msgInfo(msg[start : start + 6])
             end = start + 6 + msgLen + 2
 
             if end > len(msg):
@@ -162,94 +165,94 @@ class UBX:
 
             # Parse PVT
             print(getMsgName(msgClass, msgID))
-            if(getMsgName(msgClass, msgID) == "UBX-NAV-PVT"):
+            if getMsgName(msgClass, msgID) == "UBX-NAV-PVT":
                 lastfix = parseMsg(msg[start:end])
 
             msg = msg[end:]
             time.sleep(0.1)
 
-    def disableNMEA(self):
-        settings = {}
-        for k, v in ubx.cfg.msgout.fields.items():
-            if "CFG-MSGOUT-NMEA" in k:
-                if v[1] == "U1":
-                    settings[struct.pack("<I", v[0])] = struct.pack("<B", 0)
-                else:
-                    raise RuntimeError("Unhandled config datatype in disableNMEA")
 
-        for k, v in settings.items():
-            msg = makeValset({k: v})
-            self.ser.write(msg)
-            time.sleep(0.01)
+def getMessage(buf):
+    # Get first ubx message from bytestring, return 1 if no complete message
+    # Look for starting bytes
+    start = buf.find(b"\xb5\x62")
+    if start == -1:
+        return 1
 
-    def disableAllMessages(self):
-        settings = {}
-        for k, v in ubx.cfg.msgout.fields.items():
+    # Check if there is enough space for header information
+    if (len(buf) - start) < 6:
+        return 1
+
+    # Read header information
+    msgClass, msgID, msgLen = ubx.msgInfo(buf[start : start + 6])
+    end = start + 6 + msgLen + 2
+
+    # Check if complete message present
+    if end > len(buf):
+        return 1
+
+    return start, end, msgClass, msgID, buf[start:end]
+
+
+def disableNMEACmds(self):
+    settings = {}
+    for k, v in ubx.cfg.msgout.fields.items():
+        if "CFG-MSGOUT-NMEA" in k:
             if v[1] == "U1":
                 settings[struct.pack("<I", v[0])] = struct.pack("<B", 0)
             else:
-                raise RuntimeError("Unhandled config datatype in disableAllMessages")
+                raise RuntimeError("Unhandled config datatype in disableNMEA")
 
-        for k, v in settings.items():
-            msg = makeValset({k: v})
-            self.ser.write(msg)
-            time.sleep(0.01)
+    msgs = []
+    for k, v in settings.items():
+        msgs.append(makeValset({k: v}))
+    return msgs
 
-    def enablePVT(self):
-        settings = {}
-        for k, v in ubx.cfg.msgout.fields.items():
-            if "CFG-MSGOUT-UBX_NAV_PVT" in k:
-                if v[1] == "U1":
-                    settings[struct.pack("<I", v[0])] = struct.pack("<B", 1)
-                else:
-                    raise RuntimeError("Unhandled config datatype in enablePVT")
 
-        for k, v in settings.items():
-            msg = makeValset({k: v})
-            self.ser.write(msg)
-            time.sleep(0.01)
+def enableRAWXCmds():
+    settings = {}
+    for k, v in ubx.cfg.msgout.fields.items():
+        if "CFG-MSGOUT-UBX_RXM_RAWX" in k:
+            if v[1] == "U1":
+                settings[struct.pack("<I", v[0])] = struct.pack("<B", 1)
+            else:
+                raise RuntimeError("Unhandled config datatype in enableRAWX")
 
-    def enableRAWX(self):
-        settings = {}
-        for k, v in ubx.cfg.msgout.fields.items():
-            if "CFG-MSGOUT-UBX_RXM_RAWX" in k:
-                if v[1] == "U1":
-                    settings[struct.pack("<I", v[0])] = struct.pack("<B", 1)
-                else:
-                    raise RuntimeError("Unhandled config datatype in enableRAWX")
+    msgs = []
+    for k, v in settings.items():
+        msgs.append(makeValset({k: v}))
+    return msgs
 
-        for k, v in settings.items():
-            msg = makeValset({k: v})
-            self.ser.write(msg)
-            time.sleep(0.01)
 
-    def enableRF(self):
-        settings = {}
-        for k, v in ubx.cfg.msgout.fields.items():
-            if "CFG-MSGOUT-UBX_MON_RF" in k:
-                if v[1] == "U1":
-                    settings[struct.pack("<I", v[0])] = struct.pack("<B", 1)
-                else:
-                    raise RuntimeError("Unhandled config datatype in enableRF")
+def enableRFCmds():
+    settings = {}
+    for k, v in ubx.cfg.msgout.fields.items():
+        if "CFG-MSGOUT-UBX_MON_RF" in k:
+            if v[1] == "U1":
+                settings[struct.pack("<I", v[0])] = struct.pack("<B", 1)
+            else:
+                raise RuntimeError("Unhandled config datatype in enableRF")
 
-        for k, v in settings.items():
-            msg = makeValset({k: v})
-            self.ser.write(msg)
-            time.sleep(0.01)
+    msgs = []
+    for k, v in settings.items():
+        msgs.append(makeValset({k: v}))
+    return msgs
 
-    def enableSFRBX(self):
-        settings = {}
-        for k, v in ubx.cfg.msgout.fields.items():
-            if "CFG-MSGOUT-UBX_RXM_SFRBX" in k:
-                if v[1] == "U1":
-                    settings[struct.pack("<I", v[0])] = struct.pack("<B", 1)
-                else:
-                    raise RuntimeError("Unhandled config datatype in enableSFRBX")
 
-        for k, v in settings.items():
-            msg = makeValset({k: v})
-            self.ser.write(msg)
-            time.sleep(0.01)
+def enableSFRBXCmds():
+    settings = {}
+    for k, v in ubx.cfg.msgout.fields.items():
+        if "CFG-MSGOUT-UBX_RXM_SFRBX" in k:
+            if v[1] == "U1":
+                settings[struct.pack("<I", v[0])] = struct.pack("<B", 1)
+            else:
+                raise RuntimeError("Unhandled config datatype in enableSFRBX")
+
+    msgs = []
+    for k, v in settings.items():
+        msgs.append(makeValset({k: v}))
+    return msgs
+
 
 def enablePVTCmds():
     settings = {}
@@ -265,6 +268,7 @@ def enablePVTCmds():
         msgs.append(makeValset({k: v}))
     return msgs
 
+
 def disableAllMessagesCmds():
     settings = {}
     for k, v in ubx.cfg.msgout.fields.items():
@@ -278,8 +282,9 @@ def disableAllMessagesCmds():
         msgs.append(makeValset({k: v}))
     return msgs
 
+
 def makeValset(settings):
-    # Make valset message from dict of settings passed in
+    # Make UBX-CGF-VALSET message from dict of settings passed in
     # keys and values must be byte strings, keys are the
     # config item id (4 bytes) and values are the corresponding
     # value (1-4 bytes)
@@ -308,6 +313,24 @@ def makeValset(settings):
     msg += cksum(msg[2:])
 
     return msg
+
+
+def makeReset():
+    # Make UBX-CFG-RESET message
+
+    # Static portion
+    msg = b"\xB5\x62"  # alignment butes
+    msg += b"\x06"  # message class
+    msg += b"\x04"  # message id
+    msg += b"\x04\x00"  # message length
+    msg += b"\x00\x00"  # hot start
+    msg += b"\x00"  # software reset
+    msg += b"\x00"  # 1 reserved byte
+
+    # Add checksum
+    msg += cksum(msg[2:])
+
+    return [msg]
 
 
 def getMsgName(msgClass, msgID):
@@ -373,11 +396,11 @@ def getMsgName(msgClass, msgID):
             0x36: "UBX-RXM-SPARTNKEY",
         },
         0x05: {0x01: "UBX-ACK-ACK", 0x00: "UBX-ACK-NAK"},  # UBX-ACK
-        0x0a: {  # UBX-MON
+        0x0A: {  # UBX-MON
             0x36: "UBX-MON-COMMS",
             0x28: "UBX-MON-GNSS",
             0x09: "UBX-MON-HW",
-            0x0b: "UBX-MON-HW2",
+            0x0B: "UBX-MON-HW2",
             0x37: "UBX-MON-HW3",
             0x02: "UBX-MON-IO",
             0x06: "UBX-MON-MSGPP",
@@ -389,7 +412,7 @@ def getMsgName(msgClass, msgID):
             0x39: "UBX-MON-SYS",
             0x08: "UBX-MON-TXBUF",
             0x04: "UBX-MON-VER",
-        }
+        },
     }
 
     if msgClass not in classIndex.keys():
@@ -442,9 +465,9 @@ def parseMsg(msg):
             0x01: ubx.parse.ack.ubx_ack_ack,
             0x00: ubx.parse.ack.ubx_ack_nak,
         },
-        0x0a: {  # UBX-MON
+        0x0A: {  # UBX-MON
             0x38: ubx.parse.mon.ubx_mon_rf,
-        }
+        },
     }
 
     if msgClass not in msgIndex.keys():
