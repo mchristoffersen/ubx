@@ -6,7 +6,7 @@ import ubx
 
 def cli():
     parser = argparse.ArgumentParser(
-                    prog="ubxdump",
+                    prog="ubxls",
                     description="Decode UBX packets from file or stdin and dump to terminal.")
     parser.add_argument("file", nargs="?", default=sys.stdin.buffer, help="File to read from. Reads from stdin if no file supplied.")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -14,7 +14,7 @@ def cli():
 
 def main():
     args = cli()
-    
+
     # Open file if necessary
     if(args.file != sys.stdin.buffer):
         if(not os.path.isfile(args.file)):
@@ -32,7 +32,7 @@ def main():
             chunk = args.file.read(n)
             data = chunk
             continue
-        
+
         # Get more data if not whole header
         if (len(data) - start) < 6:
             chunk = args.file.read(n)
@@ -41,7 +41,7 @@ def main():
 
         msgClass, msgID, msgLen = ubx.msgInfo(data[start : start + 6])
         end = start + 6 + msgLen + 2
-        
+
         if end > len(data):
             chunk = args.file.read(n)
             data += chunk
